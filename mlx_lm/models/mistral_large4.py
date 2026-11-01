@@ -367,9 +367,10 @@ class Attention(nn.Module):
             )
 
         output = output.transpose(0, 2, 1, 3).reshape(B, L, -1)
-        if index_cache is not None:
-            # The indexer keys must be computed even when the top-k is unused.
-            output = mx.depends(output, [index_cache.keys])
+        if cache is not None and cache.caches:
+            # Evaluate unread cache arrays, or long generations exhaust Metal buffers.
+            state = [a for c in cache.caches for a in c.state]
+            output = mx.depends(output, [a for a in state if isinstance(a, mx.array)])
         return self.o_proj(output), topk
 
 
